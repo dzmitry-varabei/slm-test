@@ -1,0 +1,26 @@
+# Dario Amodei — "We are near the end of the exponential"
+
+**Источник:** [Dwarkesh Podcast](https://www.dwarkesh.com/p/dario-amodei-2)  
+**Дата:** Feb 13, 2026
+
+Dario Amodei thinks we are just a few years away from "a country of geniuses in a data center". In this episode, they discuss scaling hypothesis in the current RL regime, how AI will diffuse throughout the economy, whether Anthropic is underinvesting in compute, how frontier labs will make money, regulation, US-China competition, and more.
+
+---
+
+## Transcript
+
+### 00:00:00 - What exactly are we scaling?
+
+**Dwarkesh Patel:** We talked three years ago. In your view, what has been the biggest update over the last three years? What has been the biggest difference between what it felt like then versus now?
+
+**Dario Amodei:** Broadly speaking, the exponential of the underlying technology has gone about as I expected it to go. There's plus or minus a year or two here and there. I don't know that I would've predicted the specific direction of code. But when I look at the exponential, it is roughly what I expected in terms of the march of the models from smart high school student to smart college student to beginning to do PhD and professional stuff, and in the case of code reaching beyond that. The frontier is a little bit uneven, but it's roughly what I expected. What has been the most surprising thing is the lack of public recognition of how close we are to the end of the exponential. To me, it is absolutely wild that you have people — within the bubble and outside the bubble — talking about the same tired, old hot-button political issues, when we are near the end of the exponential.
+
+**Dwarkesh Patel:** I want to understand what that exponential looks like right now. The first question I asked you when we recorded three years ago was, "what's up with scaling and why does it work?" I have a similar question now, but it feels more complicated. At least from the public's point of view, three years ago there were well-known public trends across many orders of magnitude of compute where you could see how the loss improves. Now we have RL scaling and there's no publicly known scaling law for it. It's not even clear what the story is. Is this supposed to be teaching the model skills? Is it supposed to be teaching meta-learning? What is the scaling hypothesis at this point?
+
+**Dario Amodei:** I actually have the same hypothesis I had even all the way back in 2017. I think I talked about it last time, but I wrote a doc called "The Big Blob of Compute Hypothesis". It wasn't about the scaling of language models in particular. When I wrote it GPT-1 had just come out. That was one among many things. Back in those days there was robotics. People tried to work on reasoning as a separate thing from language models, and there was scaling of the kind of RL that happened in AlphaGo and in Dota at OpenAI. People remember StarCraft at DeepMind, AlphaStar. It was written as a more general document. Rich Sutton put out "The Bitter Lesson" a couple years later. The hypothesis is basically the same. What it says is that all the cleverness, all the techniques, all the "we need a new method to do something", that doesn't matter very much. There are only a few things that matter. I think I listed seven of them. One is how much raw compute you have. The second is the quantity of data. The third is the quality and distribution of data. It needs to be a broad distribution. The fourth is how long you train for. The fifth is that you need an objective function that can scale to the moon. The pre-training objective function is one such objective function. Another is the RL objective function that says you have a goal, you're going to go out and reach the goal. Within that, there's objective rewards like you see in math and coding, and there's more subjective rewards like you see in RLHF or higher-order versions of that. Then the sixth and seventh were things around normalization or conditioning, just getting the numerical stability so that the big blob of compute flows in this laminar way instead of running into problems. That was the hypothesis, and it's a hypothesis I still hold. I don't think I've seen very much that is not in line with it. The pre-training scaling laws were one example of what we see there. Those have continued going. Now it's been widely reported, we feel good about pre-training. It's continuing to give us gains. What has changed is that now we're also seeing the same thing for RL. We're seeing a pre-training phase and then an RL phase on top of that. With RL, it's actually just the same. Even other companies have published things in some of their releases that say, "We train the model on math contests — AIME or other things — and how well the model does is log-linear in how long we've trained it." We see that as well, and it's not just math contests. It's a wide variety of RL tasks. We're seeing the same scaling in RL that we saw for pre-training.
+
+*(Далее в эпизоде: Is diffusion cope?, Is continual learning necessary?, If AGI is imminent why not buy more compute?, How will AI labs make profit?, Regulations, US-China.)*
+
+---
+
+**Полный транскрипт:** https://www.dwarkesh.com/p/dario-amodei-2
