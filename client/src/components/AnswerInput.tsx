@@ -3,16 +3,24 @@ import { useState } from 'react';
 interface Props {
   onSubmit: (answer: string) => void;
   disabled: boolean;
+  onClear?: () => void;
+  clearSignal?: number;
 }
 
-export default function AnswerInput({ onSubmit, disabled }: Props) {
+export default function AnswerInput({ onSubmit, disabled, clearSignal }: Props) {
   const [answer, setAnswer] = useState('');
+  const [lastClear, setLastClear] = useState(0);
+
+  // Clear when clearSignal changes (new question loaded)
+  if (clearSignal !== undefined && clearSignal !== lastClear) {
+    setAnswer('');
+    setLastClear(clearSignal);
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (answer.trim()) {
       onSubmit(answer.trim());
-      setAnswer('');
     }
   };
 

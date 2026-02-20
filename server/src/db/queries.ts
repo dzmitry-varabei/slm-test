@@ -250,6 +250,12 @@ export async function getActivePromptExamples(): Promise<PromptExample[]> {
   );
 }
 
+export async function getActivePromptExamplesCount(): Promise<number> {
+  const db = await getDb();
+  const result = db.exec('SELECT COUNT(*) as count FROM prompt_examples WHERE active = 1');
+  return (result[0]?.values[0]?.[0] as number) || 0;
+}
+
 // Alternative answers
 export async function getFlashcardAnswers(flashcardId: number): Promise<FlashcardAnswer[]> {
   const db = await getDb();

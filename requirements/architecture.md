@@ -1,5 +1,14 @@
 # Архитектура AI-Trainer
 
+> PlantUML диаграммы находятся в файле [`diagrams.puml`](diagrams.puml).
+> Для рендера: [PlantUML Online](https://www.plantuml.com/plantuml/uml/) или плагин IDE.
+>
+> Содержит 4 диаграммы:
+> 1. **typical-scenario** — sequence diagram типового сценария (Debug Mode + Feedback Loop)
+> 2. **feedback-loop** — activity diagram цикла обратной связи
+> 3. **component-diagram** — компонентная диаграмма всей системы
+> 4. **data-model** — ER-диаграмма базы данных
+
 ## Обзор системы
 
 ```

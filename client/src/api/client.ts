@@ -17,6 +17,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 export const api = {
   // Flashcards
   getFlashcards: () => request<any[]>('/flashcards'),
+  getFlashcard: (id: number) => request<any>(`/flashcards/${id}`),
   getRandomFlashcard: () => request<any>('/flashcards/random'),
 
   // Sessions

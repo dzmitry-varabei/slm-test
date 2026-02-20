@@ -7,6 +7,7 @@ import {
   getInteractionById,
   createPromptExample,
   getAllAnswersForFlashcard,
+  getActivePromptExamplesCount,
 } from '../db/queries';
 import { evaluateAnswer } from '../services/slm/evaluation';
 import { evaluateWithClaude } from '../services/slm/claude-cli';
@@ -78,6 +79,17 @@ quizRouter.post('/evaluate', async (req, res) => {
       latency_ms: slmResult.latencyMs,
     };
 
+    // Auto-create few-shot example when Claude and SLM disagree
+    if (debug && claudeResult && claudeResult.verdict !== slmResult.verdict) {
+      await createPromptExample({
+        question: flashcard.question,
+        reference_answer: flashcard.answer,
+        user_answer,
+        expected_verdict: claudeResult.verdict,
+        reason: `SLM: "${slmResult.verdict}", Claude: "${claudeResult.verdict}". ${claudeResult.explanation}`,
+      });
+    }
+
     // Debug mode: add extended data
     if (debug) {
       response.prompt_sent = slmResult.promptSent;
@@ -86,6 +98,8 @@ quizRouter.post('/evaluate', async (req, res) => {
       response.completion_tokens = slmResult.completionTokens;
       response.reference_answer = flashcard.answer;
       response.all_reference_answers = allAnswers;
+      response.examples_count = await getActivePromptExamplesCount();
+      response.auto_example_created = !!(claudeResult && claudeResult.verdict !== slmResult.verdict);
 
       if (claudeResult) {
         response.claude = {

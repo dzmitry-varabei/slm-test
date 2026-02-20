@@ -59,6 +59,8 @@ export interface EvaluationResponse {
   completion_tokens?: number;
   reference_answer?: string;
   all_reference_answers?: string[];
+  examples_count?: number;
+  auto_example_created?: boolean;
   claude?: {
     verdict: 'correct' | 'partially_correct' | 'incorrect';
     comment: string;

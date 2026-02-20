@@ -21,15 +21,30 @@ export default function QuizPage({ debugMode }: Props) {
   const [result, setResult] = useState<EvaluationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<EvaluationResponse[]>([]);
+  const [examplesCount, setExamplesCount] = useState<number>(0);
+  const [clearSignal, setClearSignal] = useState<number>(0);
 
   const loadQuestion = useCallback(async () => {
     try {
       setError(null);
       setResult(null);
+      setClearSignal((s) => s + 1);
       const fc = await api.getRandomFlashcard();
       setFlashcard(fc);
     } catch (err: any) {
       setError(err.message);
+    }
+  }, []);
+
+  const loadQuestionById = useCallback(async (id: number) => {
+    try {
+      setError(null);
+      setResult(null);
+      setClearSignal((s) => s + 1);
+      const fc = await api.getFlashcard(id);
+      setFlashcard(fc);
+    } catch (err: any) {
+      setError(`Question #${id} not found`);
     }
   }, []);
 
@@ -55,6 +70,9 @@ export default function QuizPage({ debugMode }: Props) {
       const evalResult = await api.evaluate(sid, flashcard.id, answer, debugMode);
       setResult(evalResult);
       setHistory((prev) => [evalResult, ...prev]);
+      if (evalResult.examples_count != null) {
+        setExamplesCount(evalResult.examples_count);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -76,13 +94,18 @@ export default function QuizPage({ debugMode }: Props) {
         <button className="btn btn-sm" onClick={handleNewSession}>New Session</button>
         {sessionId && <span className="session-badge">Session #{sessionId}</span>}
         {debugMode && <span className="debug-badge">DEBUG</span>}
+        {debugMode && examplesCount > 0 && (
+          <span className="examples-badge" title="Active few-shot examples in SLM prompt">
+            {examplesCount} {examplesCount === 1 ? 'example' : 'examples'}
+          </span>
+        )}
       </div>
 
       {flashcard && (
-        <QuestionCard flashcard={flashcard} onNext={loadQuestion} />
+        <QuestionCard flashcard={flashcard} onNext={loadQuestion} onGoTo={loadQuestionById} />
       )}
 
-      <AnswerInput onSubmit={handleSubmit} disabled={evaluating || !flashcard} />
+      <AnswerInput onSubmit={handleSubmit} disabled={evaluating || !flashcard} clearSignal={clearSignal} />
 
       {evaluating && (
         <div className="loading">
@@ -97,6 +120,12 @@ export default function QuizPage({ debugMode }: Props) {
 
           {debugMode && (
             <div className="debug-sections">
+              {result.auto_example_created && (
+                <div className="auto-example-notice">
+                  SLM and Claude disagree — few-shot example auto-created from Claude's verdict
+                </div>
+              )}
+
               {result.prompt_sent && result.slm_raw_response && (
                 <DebugPanel
                   promptSent={result.prompt_sent}
@@ -126,6 +155,7 @@ export default function QuizPage({ debugMode }: Props) {
                 interactionId={result.interaction_id}
                 onOverrideApplied={(verdict) => {
                   setResult((prev) => prev ? { ...prev, _override: verdict } as any : null);
+                  setExamplesCount((c) => c + 1);
                 }}
               />
             </div>

@@ -1,0 +1,330 @@
+@startuml typical-scenario
+title Типовой сценарий: оценка ответа студента (Debug Mode)
+skinparam backgroundColor #1a1d27
+skinparam defaultFontColor #e4e4e7
+skinparam defaultFontSize 13
+skinparam sequenceArrowColor #6366f1
+skinparam sequenceLifeLineBorderColor #2a2e3f
+skinparam sequenceParticipantBackgroundColor #22263a
+skinparam sequenceParticipantBorderColor #2a2e3f
+skinparam sequenceGroupBackgroundColor #22263a
+skinparam noteBorderColor #2a2e3f
+skinparam noteBackgroundColor #22263a
+
+actor "Преподаватель" as Teacher
+participant "React UI\n(Debug Mode)" as UI
+participant "Express\nServer" as Server
+database "SQLite" as DB
+participant "SLM\n(Groq API)" as SLM
+participant "Claude\nCLI" as Claude
+
+== Выбор вопроса ==
+Teacher -> UI : Вводит номер вопроса #5
+UI -> Server : GET /api/flashcards/5
+Server -> DB : SELECT * FROM flashcards WHERE id=5
+DB --> Server : {question, answer}
+Server --> UI : Flashcard #5
+
+== Ответ студента ==
+Teacher -> UI : Вводит ответ, нажимает Submit
+UI -> Server : POST /api/quiz/evaluate\n{flashcard_id:5, user_answer, debug:true}
+
+Server -> DB : Загрузка данных
+DB --> Server : flashcard + answers +\nfew-shot examples + provider
+
+par Параллельная оценка
+    Server -> SLM : system prompt\n+ few-shot примеры\n+ user prompt
+    note right of SLM : ~300-500мс
+    SLM --> Server : {"verdict":"partially_correct",\n"comment":"..."}
+else
+    Server -> Claude : Расширенный промпт\n(stdin → claude CLI)
+    note right of Claude : ~3-10с
+    Claude --> Server : {"verdict":"correct",\n"comment":"...",\n"explanation":"..."}
+end
+
+== Авто-генерация примера (модели разошлись) ==
+Server -> Server : SLM ≠ Claude?\npartially_correct ≠ correct → Да
+Server -> DB : INSERT INTO prompt_examples\n(verdict=correct,\nreason="Claude's explanation")
+
+Server -> DB : INSERT INTO interactions\n(все поля обеих оценок)
+DB --> Server : interaction_id
+
+Server --> UI : Полный ответ:\nSLM verdict + Claude verdict +\nprompt + raw + reference +\nexamples_count
+
+== Отображение результата ==
+UI -> UI : Показать: SLM оценка,\nClaude оценка, промпт,\nraw ответ, эталон,\nсчётчик примеров (N)
+
+note over UI
+  Уведомление:
+  "SLM and Claude disagree —
+  few-shot example auto-created"
+end note
+
+== Teacher Override (опционально) ==
+Teacher -> UI : Нажимает "Correct"
+UI -> Server : POST /api/quiz/7/override\n{verdict:"correct"}
+Server -> DB : UPDATE interactions\nSET teacher_override='correct'
+Server -> DB : SLM verdict ≠ teacher?\nДа → INSERT prompt_examples
+Server --> UI : {success: true}
+UI -> UI : Обновить счётчик примеров (N+1)
+
+== Повторная проверка того же вопроса ==
+Teacher -> UI : Тот же вопрос #5,\nтот же ответ, Submit
+UI -> Server : POST /api/quiz/evaluate\n{flashcard_id:5, debug:true}
+Server -> DB : Загрузить few-shot примеры\n(теперь N+1 штук)
+Server -> SLM : system prompt\n+ новые few-shot примеры\n+ user prompt
+note right of SLM
+  Промпт теперь содержит
+  примеры из предыдущих
+  коррекций
+end note
+SLM --> Server : {"verdict":"correct"}\n(SLM учла примеры)
+Server --> UI : Новый результат
+
+note over Teacher, UI
+  Преподаватель видит, что SLM
+  скорректировала свою оценку
+  благодаря few-shot примерам
+end note
+
+@enduml
+
+
+@startuml feedback-loop
+title Feedback Loop: от ошибки SLM до улучшения
+skinparam backgroundColor #1a1d27
+skinparam defaultFontColor #e4e4e7
+skinparam defaultFontSize 13
+skinparam activityBackgroundColor #22263a
+skinparam activityBorderColor #2a2e3f
+skinparam arrowColor #6366f1
+
+start
+
+:Студент отвечает на вопрос;
+
+fork
+  :SLM оценивает ответ;
+  note right: ~300-500мс\nverdict + comment
+fork again
+  :Claude оценивает ответ;
+  note left: ~3-10с\nverdict + comment\n+ explanation
+end fork
+
+if (SLM verdict == Claude verdict?) then (Да)
+  :Согласованная оценка;
+  :Показать результат;
+else (Нет — модели разошлись)
+  :Авто-создание few-shot примера\nиз вердикта Claude;
+  note right
+    Пример сохраняется в
+    prompt_examples с
+    explanation от Claude
+    как reason
+  end note
+  :Показать результат +\nуведомление о разногласии;
+endif
+
+if (Преподаватель корректирует?) then (Да)
+  :Teacher Override →\nвыбор правильного вердикта;
+
+  if (Override ≠ SLM verdict?) then (Да)
+    :Создать ещё один\nfew-shot пример;
+  else (Нет)
+    :Только сохранить override;
+  endif
+else (Нет)
+  :Оценка принята как есть;
+endif
+
+:Следующий вопрос;
+
+note right
+  При следующей оценке
+  SLM получит обновлённый
+  промпт с новыми
+  few-shot примерами
+  (лимит: 10 последних)
+end note
+
+stop
+
+@enduml
+
+
+@startuml component-diagram
+title Компонентная диаграмма AI-Trainer
+skinparam backgroundColor #1a1d27
+skinparam defaultFontColor #e4e4e7
+skinparam defaultFontSize 13
+skinparam componentBackgroundColor #22263a
+skinparam componentBorderColor #2a2e3f
+skinparam packageBackgroundColor #1a1d27
+skinparam packageBorderColor #2a2e3f
+skinparam arrowColor #6366f1
+skinparam interfaceBackgroundColor #6366f1
+
+package "Client (React + Vite)" {
+  [QuizPage] as QP
+  [QuestionCard] as QC
+  [AnswerInput] as AI
+  [EvaluationResult] as ER
+  [DebugPanel] as DP
+  [ClaudeResult] as CR
+  [TeacherOverride] as TO
+  [ReferenceAnswer] as RA
+  [ProviderSelector] as PS
+  [Layout + Debug Toggle] as LT
+}
+
+package "Server (Express + TypeScript)" {
+  [Quiz Router] as QR
+  [Flashcards Router] as FR
+  [Sessions Router] as SR
+  [Settings Router] as STR
+
+  package "SLM Service Layer" {
+    [Prompt Builder\n(few-shot injection)] as PB
+    [Evaluation Service] as ES
+    [Claude CLI Service] as CCS
+    [Provider (Groq/Ollama)] as PROV
+  }
+
+  package "Data Layer" {
+    [Queries] as Q
+    [Schema] as SCH
+    [Connection (sql.js)] as CONN
+  }
+}
+
+database "SQLite\nai-trainer.db" as DB {
+  [flashcards]
+  [flashcard_answers]
+  [sessions]
+  [interactions]
+  [prompt_examples]
+  [provider_config]
+}
+
+cloud "External" {
+  [Groq API\n(облако)] as GROQ
+  [Ollama\n(локально)] as OLLAMA
+  [Claude CLI] as CCLI
+}
+
+QP --> QC
+QP --> AI
+QP --> ER
+QP --> DP
+QP --> CR
+QP --> TO
+QP --> RA
+QP --> PS
+LT --> QP
+
+QP -down-> QR : HTTP POST\n/api/quiz/evaluate
+PS -down-> STR : HTTP\n/api/settings
+QC -down-> FR : HTTP GET\n/api/flashcards/:id
+
+QR --> ES
+QR --> CCS
+QR --> Q
+ES --> PB
+ES --> PROV
+PB --> Q : getActivePromptExamples()
+
+Q --> CONN
+CONN --> DB
+
+PROV --> GROQ : OpenAI-compatible\nHTTP API
+PROV --> OLLAMA : OpenAI-compatible\nHTTP API
+CCS --> CCLI : child_process.spawn\nstdin/stdout
+
+@enduml
+
+
+@startuml data-model
+title Модель данных (ER-диаграмма)
+skinparam backgroundColor #1a1d27
+skinparam defaultFontColor #e4e4e7
+skinparam defaultFontSize 12
+skinparam classBackgroundColor #22263a
+skinparam classBorderColor #2a2e3f
+skinparam arrowColor #6366f1
+
+entity "flashcards" {
+  * **id** : INTEGER <<PK>>
+  --
+  * question : TEXT
+  * answer : TEXT
+  source : TEXT
+  created_at : TEXT
+}
+
+entity "flashcard_answers" {
+  * **id** : INTEGER <<PK>>
+  --
+  * flashcard_id : INTEGER <<FK>>
+  * answer : TEXT
+  label : TEXT
+  created_at : TEXT
+}
+
+entity "sessions" {
+  * **id** : INTEGER <<PK>>
+  --
+  started_at : TEXT
+  finished_at : TEXT
+  provider : TEXT
+  model : TEXT
+}
+
+entity "interactions" {
+  * **id** : INTEGER <<PK>>
+  --
+  * session_id : INTEGER <<FK>>
+  * flashcard_id : INTEGER <<FK>>
+  * user_answer : TEXT
+  slm_verdict : TEXT
+  slm_comment : TEXT
+  slm_raw_response : TEXT
+  claude_verdict : TEXT
+  claude_comment : TEXT
+  claude_explanation : TEXT
+  claude_raw_response : TEXT
+  teacher_override : TEXT
+  prompt_sent : TEXT
+  provider : TEXT
+  model : TEXT
+  prompt_tokens : INTEGER
+  completion_tokens : INTEGER
+  latency_ms : INTEGER
+  claude_latency_ms : INTEGER
+  created_at : TEXT
+}
+
+entity "prompt_examples" {
+  * **id** : INTEGER <<PK>>
+  --
+  * question : TEXT
+  * reference_answer : TEXT
+  * user_answer : TEXT
+  * expected_verdict : TEXT
+  reason : TEXT
+  active : INTEGER
+  created_at : TEXT
+}
+
+entity "provider_config" {
+  * **id** : INTEGER <<PK>> (=1)
+  --
+  * provider : TEXT
+  * model : TEXT
+  * base_url : TEXT
+}
+
+flashcards ||--o{ flashcard_answers : "1 → N\nальтернативные ответы"
+flashcards ||--o{ interactions : "1 → N"
+sessions ||--o{ interactions : "1 → N"
+
+@enduml
